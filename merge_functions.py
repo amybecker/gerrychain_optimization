@@ -3,7 +3,7 @@ a = random.randint(0,10000000000)
 import math
 from functools import partial
 import numpy as np
-from gerrychain import MarkovChain, Graph
+from gerrychain import MarkovChain, Graph, constraints
 from gerrychain.tree import recursive_tree_part, bipartition_tree
 from gerrychain.partition import Partition
 import networkx as nx
@@ -98,3 +98,23 @@ def merge_parts_smallest_sum_alt(partition, k):
     keydict = {v:keyshift[partition.assignment[v]] for v in partition.graph.nodes()}
     return Partition(partition.graph, keydict, partition.updaters)
 
+def merge_small_neighbor(partition,k):
+    #finds smallest district in map and merges with its smallest neighbor (by population)
+    #repeats until k dists reached
+    merged_assign = dict(partition.assignment)
+    cut_edge_list = list(partition["cut_edges"])
+    while len(partition) > k:  
+        smallest_pop_dist = min(partition["population"], key= partition["population"].get)
+        dist_edges = [e for e in cut_edge_list for z in [0,1] if partition.assignment[e[z]] == smallest_pop_dist]
+        neighbor_dists= list(np.unique([partition.assignment[e[z]] for z in [0,1] for e in dist_edges] ))
+        neighbor_dists.remove(smallest_pop_dist)
+        neighbor_pops = {q: partition["population"][q] for q in neighbor_dists}
+        neighbor_smallest_pop = min(neighbor_pops, key=neighbor_pops.get)  
+
+        for n in partition.parts[smallest_pop_dist]:
+            merged_assign[n] = neighbor_smallest_pop
+        
+        partition = Partition(partition.graph, merged_assign, partition.updaters)
+    
+    return Partition(partition.graph, merged_assign, partition.updaters)
+    

@@ -11,8 +11,8 @@ import csv
 
 from gerrychain.random import random
 random.seed(a)
-from gerrychain.proposals import recom
-from gerrychain import MarkovChain, Graph
+from gerrychain.proposals import recom, propose_random_flip
+from gerrychain import MarkovChain, Graph, constraints
 from gerrychain.updaters import Tally, cut_edges
 from gerrychain.partition import Partition
 import networkx as nx
@@ -22,9 +22,6 @@ from merge_functions import *
 from dividing_functions import *
 from shift_pop_functions import *
 from utility_functions import *
-
-
-
 
 def book_chapter_crossover(part1, part2, k, ep, max_adjust, ideal_pop, draw_map = False, gdf = None, unit_name = None):
         part_refine = common_refinement(part1, part2)
@@ -135,7 +132,73 @@ def half_half_recom_crossover(part1, part2, k, ep, max_adjust, ideal_pop,draw_ma
         else:
             return part1, part2
 
+def tiling_crossover(part1, part2, k, ep, ideal_pop, max_adjust, flip_chain_bound, draw_map = False, gdf = None, unit_name = None):
+    part_tile = tiled(part1, part2)
+    part_merge = merge_small_neighbor(part_tile, k)
+    part_shift0 = shift_flip(part_merge, ep, ideal_pop, max_adjust, flip_chain_bound)
+    #note here in part_shift, max_adjust applies to number of chain flip steps in adjusting population
+    #get final partition's part values to be in 0 indexed range of # total parts
+    part_shift = shift_part_keys(part_shift0)
+    
+    if draw_map:
+            try:
+                assert(len(gdf) >= 0)
+                assert(len(unit_name) >= 0)
+            except:
+                print("Must specify gdf and unit name if draw_map=True")
+                return part1, part2
 
+            gdf_print_map(part1, './figures/tiling_crossover_parent1.png', gdf, unit_name)
+            gdf_print_map(part2, './figures/tiling_crossover_parent2.png', gdf, unit_name)
+            gdf_print_map(part_tile, './figures/tiling_crossover_tile.png', gdf, unit_name)
+            gdf_print_map(part_merge, './figures/tiling_crossover_merge.png', gdf, unit_name)
+            gdf_print_map(part_shift, './figures/tiling_crossover_shift.png', gdf, unit_name)
+            
+            print('parent 1:', len(part1["cut_edges"]), ' parent 2:', len(part2["cut_edges"]),' tiled:', len(part_tile["cut_edges"]),' merge:', len(part_merge["cut_edges"]),' shift', len(part_shift["cut_edges"]))
+          
+    if len(part1["cut_edges"]) > len(part2["cut_edges"]):
+            better_parent = part2
+    else:
+        better_parent = part1
+    if max([abs(part_shift["population"][i]-ideal_pop) for i in range(len(part_shift))]) <= ep*ideal_pop:
+        return part_shift, better_parent
+    else:
+        return part1, part2
+
+def seam_split_crossover(part1, part2, k, ep, ideal_pop, max_adjust, flip_chain_bound, draw_map = False, gdf = None, unit_name = None): 
+    #shift assignment keys in partition2 so no shared keys between parent maps
+    part2_dict = dict(part2.assignment)
+    part2_assign = {n: (part2_dict[n] + num_districts) for n in part2_dict.keys()}
+    part2 = Partition(part2.graph, part2_assign, partition.updaters)
+    
+    part_split = half_split(partition, gdf)
+    
+    if draw_map:
+            try:
+                assert(len(gdf) >= 0)
+                assert(len(unit_name) >= 0)
+            except:
+                print("Must specify gdf and unit name if draw_map=True")
+                return part1, part2
+
+            gdf_print_map(part1, './figures/seam_split_crossover_parent1.png', gdf, unit_name)
+            gdf_print_map(part2, './figures/seam_split_crossover_parent2.png', gdf, unit_name)
+            gdf_print_map(part_split, './figures/seam_split_crossover_part_split.png', gdf, unit_name)
+#            gdf_print_map(part_merge, './figures/seam_split_crossover_merge.png', gdf, unit_name)
+#            gdf_print_map(part_shift, './figures/seam_split_crossover_shift.png', gdf, unit_name)
+#            
+#            print('parent 1:', len(part1["cut_edges"]), ' parent 2:', len(part2["cut_edges"]),' tiled:', len(part_tile["cut_edges"]),' merge:', len(part_merge["cut_edges"]),' shift', len(part_shift["cut_edges"]))
+#          
+#    if len(part1["cut_edges"]) > len(part2["cut_edges"]):
+#            better_parent = part2
+#    else:
+#        better_parent = part1
+#    if max([abs(part_shift["population"][i]-ideal_pop) for i in range(len(part_shift))]) <= ep*ideal_pop:
+#        return part_shift, better_parent
+#    else:
+#        return part1, part2
+    
+    
 ################################  testing ########################################
 
 
@@ -169,7 +232,7 @@ def crossover_test():
     updaters = {
         "population": Tally("TOTPOP", alias="population"),
         "cut_edges": cut_edges,
-        "centroids": centroids_x_y_area
+        "centroids": centroids_x_y_area    
     }
 
     new_plan1 = recursive_tree_part(graph, range(k), ideal_pop, "TOTPOP", .02, 3)
@@ -179,7 +242,10 @@ def crossover_test():
 
     max_adjust = 10000
     ep = 0.05
-
+    
+    print("tiling test:")
+    tiling_child1, tiling_child2 = tiling_crossover(part1, part2, k, ep, ideal_pop, max_adjust, .1, draw_map = True, gdf = gdf, unit_name = unit_name)
+    print(len(tiling_child1.cut_edges), len(tiling_child2.cut_edges))
     print("book chapter crossover test:")
     book_child1, book_child2 = book_chapter_crossover(part1, part2, k, ep, max_adjust, ideal_pop, draw_map = True, gdf = gdf, unit_name = unit_name)
     print(len(book_child1.cut_edges), len(book_child2.cut_edges))
@@ -189,6 +255,9 @@ def crossover_test():
     print("half-half recome crossover test:")
     half_recom_child1, half_recom_child2 = half_half_recom_crossover(part1, part2, k, ep, max_adjust, ideal_pop, draw_map = True, gdf = gdf, unit_name = unit_name)
     print(len(half_recom_child1.cut_edges), len(half_recom_child2.cut_edges))
+    
 
-if __name__ == "__main__":
+if __name__ == "__main__":    
     crossover_test()
+
+

@@ -16,7 +16,8 @@ from gerrychain import MarkovChain, Graph, constraints
 from gerrychain.updaters import Tally, cut_edges
 from gerrychain.partition import Partition
 import networkx as nx
-from gerrychain.tree import recursive_tree_part, bipartition_tree
+from recursive_tree_timeout import *
+#from gerrychain.tree import recursive_tree_part, bipartition_tree
 
 from merge_functions import *
 from dividing_functions import *
@@ -132,10 +133,10 @@ def half_half_recom_crossover(part1, part2, k, ep, max_adjust, ideal_pop,draw_ma
         else:
             return part1, part2
 
-def tiling_crossover(part1, part2, k, ep, ideal_pop, max_adjust, flip_chain_bound, draw_map = False, gdf = None, unit_name = None):
+def tiling_crossover(part1, part2, k, ep, max_adjust, ideal_pop, draw_map = False, gdf = None, unit_name = None):
     part_tile = tiled(part1, part2)
     part_merge = merge_small_neighbor(part_tile, k)
-    part_shift0 = shift_flip(part_merge, ep, ideal_pop, max_adjust, flip_chain_bound)
+    part_shift0 = shift_flip(part_merge, ep, ideal_pop)
     #note here in part_shift, max_adjust applies to number of chain flip steps in adjusting population
     #get final partition's part values to be in 0 indexed range of # total parts
     part_shift = shift_part_keys(part_shift0)
@@ -165,13 +166,14 @@ def tiling_crossover(part1, part2, k, ep, ideal_pop, max_adjust, flip_chain_boun
     else:
         return part1, part2
 
-def seam_split_crossover(part1, part2, k, ep, ideal_pop, max_adjust, flip_chain_bound, draw_map = False, gdf = None, unit_name = None): 
+def seam_split_crossover(part1, part2, k, ep, max_adjust, ideal_pop, draw_map = False, gdf = None, unit_name = None): 
     #shift assignment keys in partition2 so no shared keys between parent maps
     part2_dict = dict(part2.assignment)
-    part2_assign = {n: (part2_dict[n] + num_districts) for n in part2_dict.keys()}
-    part2 = Partition(part2.graph, part2_assign, partition.updaters)
-    
-    part_split = half_split(partition, gdf)
+    part2_assign = {n: (part2_dict[n] + k) for n in part2_dict.keys()}
+    part2 = Partition(part2.graph, part2_assign, part2.updaters)
+
+    final_part0, split_part, merge_part, seam_part = seam_split_merge(part1, part2, k, ep, gdf)
+    final_part = shift_part_keys(final_part0)  
     
     if draw_map:
             try:
@@ -183,39 +185,64 @@ def seam_split_crossover(part1, part2, k, ep, ideal_pop, max_adjust, flip_chain_
 
             gdf_print_map(part1, './figures/seam_split_crossover_parent1.png', gdf, unit_name)
             gdf_print_map(part2, './figures/seam_split_crossover_parent2.png', gdf, unit_name)
-            gdf_print_map(part_split, './figures/seam_split_crossover_part_split.png', gdf, unit_name)
-#            gdf_print_map(part_merge, './figures/seam_split_crossover_merge.png', gdf, unit_name)
-#            gdf_print_map(part_shift, './figures/seam_split_crossover_shift.png', gdf, unit_name)
+            gdf_print_map(final_part, './figures/seam_split_crossover_final_split.png', gdf, unit_name)
+            gdf_print_map(split_part, './figures/seam_split_crossover_split.png', gdf, unit_name)
+            gdf_print_map(merge_part, './figures/seam_split_crossover_merge.png', gdf, unit_name)
+            gdf_print_map(seam_part, './figures/seam_split_crossover_seam.png', gdf, unit_name)
 #            
-#            print('parent 1:', len(part1["cut_edges"]), ' parent 2:', len(part2["cut_edges"]),' tiled:', len(part_tile["cut_edges"]),' merge:', len(part_merge["cut_edges"]),' shift', len(part_shift["cut_edges"]))
-#          
-#    if len(part1["cut_edges"]) > len(part2["cut_edges"]):
-#            better_parent = part2
-#    else:
-#        better_parent = part1
-#    if max([abs(part_shift["population"][i]-ideal_pop) for i in range(len(part_shift))]) <= ep*ideal_pop:
-#        return part_shift, better_parent
-#    else:
-#        return part1, part2
+            print('parent 1:', len(part1["cut_edges"]), ' parent 2:', len(part2["cut_edges"]), 'final', len(final_part["cut_edges"]))
+          
+    if len(part1["cut_edges"]) > len(part2["cut_edges"]):
+            better_parent = part2
+    else:
+        better_parent = part1
+    if max([abs(final_part["population"][i]-ideal_pop) for i in range(len(final_part))]) <= ep*ideal_pop:
+        return final_part, better_parent
+    else:
+        return part1, part2
     
     
 ################################  testing ########################################
 
 
 def crossover_test():
-    k = 4
-    graph_name = 'iowa'
-    graph_path = './input_data/'+graph_name+'.json'
-    graph = Graph.from_json(graph_path)
+    #test on IOWA
+#    k = 4
+#    graph_name = 'iowa'
+#    graph_path = './input_data/'+graph_name+'.json'
+#    graph = Graph.from_json(graph_path)
+#    num_districts = k
+#    ideal_pop = sum([graph.nodes[v]["TOTPOP"] for v in graph.nodes()])/num_districts
+#    unit_name = 'GEOID10'
+#    area_name = 'area'
+#    x_name = 'INTPTLON10'
+#    y_name = 'INTPTLAT10'
+#    # areaC_X = "areaC_X"
+#    # areaC_Y = "areaC_Y"
+#    # area = 'area'
+#    shapefile_name = 'IA_counties'
+#    gdf = gpd.read_file('./input_data/'+shapefile_name)
+#    gdf = gdf.to_crs({'init': 'epsg:26775'})
+
+#test on New Mexico    
+    k = 42 #NM state senate districts
+    graph_name = 'New Mexico'
+    unit_name = 'NAME10'
     num_districts = k
+    plot_path = './input_data/NM_precincts_edited/NM_precincts_edited.shp' 
+    gdf = gpd.read_file(plot_path)
+    graph = Graph.from_geodataframe(gdf)
+    graph.add_data(gdf)
     ideal_pop = sum([graph.nodes[v]["TOTPOP"] for v in graph.nodes()])/num_districts
-    unit_name = 'GEOID10'
-    area_name = 'area'
-    x_name = 'INTPTLON10'
-    y_name = 'INTPTLAT10'
-    # areaC_X = "areaC_X"
-    # areaC_Y = "areaC_Y"
-    # area = 'area'
+    area_name = 'Area'
+    centroids = gdf.centroid
+    c_x = centroids.x
+    c_y = centroids.y
+    for node in graph.nodes():
+        graph.nodes[node]["x_val"] = c_x[node]
+        graph.nodes[node]["y_val"] = c_y[node]
+    x_name = 'x_val'
+    y_name = 'y_val'
 
     for node in graph.nodes():
         graph.nodes[node]["x"] = float(graph.nodes[node][x_name])
@@ -223,12 +250,7 @@ def crossover_test():
         # graph.nodes[node]["areaC_X"] = float(graph.nodes[node][area_name])*float(graph.nodes[node][x_name])
         # graph.nodes[node]["areaC_Y"] = float(graph.nodes[node][area_name])*float(graph.nodes[node][y_name])
         graph.nodes[node]["area"] = float(graph.nodes[node][area_name])
-
-
-    shapefile_name = 'IA_counties'
-    gdf = gpd.read_file('./input_data/'+shapefile_name)
-    gdf = gdf.to_crs({'init': 'epsg:26775'})
-
+   
     updaters = {
         "population": Tally("TOTPOP", alias="population"),
         "cut_edges": cut_edges,
@@ -243,8 +265,11 @@ def crossover_test():
     max_adjust = 10000
     ep = 0.05
     
-    print("tiling test:")
-    tiling_child1, tiling_child2 = tiling_crossover(part1, part2, k, ep, ideal_pop, max_adjust, .1, draw_map = True, gdf = gdf, unit_name = unit_name)
+    print("seam crossover test:")
+    seam_child1, seam_child2 = seam_split_crossover(part1, part2, k, ep, max_adjust, ideal_pop, draw_map = True, gdf = gdf, unit_name = unit_name)
+    print(len(seam_child1.cut_edges), len(seam_child2.cut_edges))
+    print("tiling crossover test:")
+    tiling_child1, tiling_child2 = tiling_crossover(part1, part2, k, ep, max_adjust, ideal_pop, draw_map = True, gdf = gdf, unit_name = unit_name)
     print(len(tiling_child1.cut_edges), len(tiling_child2.cut_edges))
     print("book chapter crossover test:")
     book_child1, book_child2 = book_chapter_crossover(part1, part2, k, ep, max_adjust, ideal_pop, draw_map = True, gdf = gdf, unit_name = unit_name)
@@ -252,7 +277,7 @@ def crossover_test():
     print("chen crossover test:")
     chen_child1, chen_child2 = chen_crossover(part1, part2, k, ep, max_adjust, ideal_pop, draw_map = True, gdf = gdf, unit_name = unit_name)
     print(len(chen_child1.cut_edges), len(chen_child2.cut_edges))
-    print("half-half recome crossover test:")
+    print("half-half recom crossover test:")
     half_recom_child1, half_recom_child2 = half_half_recom_crossover(part1, part2, k, ep, max_adjust, ideal_pop, draw_map = True, gdf = gdf, unit_name = unit_name)
     print(len(half_recom_child1.cut_edges), len(half_recom_child2.cut_edges))
     

@@ -4,7 +4,8 @@ import math
 from functools import partial
 import numpy as np
 from gerrychain import MarkovChain, Graph, constraints
-from gerrychain.tree import recursive_tree_part, bipartition_tree
+from recursive_tree_timeout import *
+#from gerrychain.tree import recursive_tree_part, bipartition_tree
 from gerrychain.constraints import (
     Validator,
     single_flip_contiguous,
@@ -297,7 +298,7 @@ def shift_chen(partition, ep, rep_max, ideal_pop, dist_func, draw_map= False):
     # print(past_10)
     return partition
 
-def shift_flip(partition, ep, ideal_pop, max_steps, chain_bound):
+def shift_flip(partition, ep, ideal_pop, max_steps = 10000, chain_bound = .1):
     
     #TODO: Amy, where do we think this function should be stored? Its
     #needed in the Chain I run within this shift function
@@ -312,11 +313,15 @@ def shift_flip(partition, ep, ideal_pop, max_steps, chain_bound):
             draw = random.random()
             return draw < chain_bound
         
+    print("ideal pop", ideal_pop)
+    
     pop_tol_initial = max_pop_dev(partition, ideal_pop)
+    print("pop tol initial", pop_tol_initial)
+    #if error again from initial state, just make constraint value
     chain = MarkovChain(
     proposal = propose_random_flip,
     constraints=[
-        constraints.within_percent_of_ideal_population(partition, pop_tol_initial),
+        constraints.within_percent_of_ideal_population(partition, pop_tol_initial+.05),
         single_flip_contiguous 
     ],
     accept = pop_accept,
@@ -330,7 +335,6 @@ def shift_flip(partition, ep, ideal_pop, max_steps, chain_bound):
             break 
     
     return Partition(partition.graph, partition.assignment, partition.updaters) 
-
 
 
 

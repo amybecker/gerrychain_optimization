@@ -20,7 +20,8 @@ from gerrychain.constraints import (
     within_percent_of_ideal_population,
 )
 from gerrychain.accept import always_accept
-from gerrychain.tree import recursive_tree_part
+from recursive_tree_timeout import *
+#from gerrychain.tree import recursive_tree_part
 from gerrychain.updaters import Tally, cut_edges
 from gerrychain.partition import Partition
 import networkx as nx
@@ -29,7 +30,7 @@ from utility_functions import *
 
 ####################################################################################
 
-
+#acceptance functions
 def hill_climb(partition):
     bound = 1
     if partition.parent is not None:
@@ -50,7 +51,7 @@ def anneal(partition, t):
     
     return random.random() < bound        
 
-
+#proposal functions
 def slow_reversible_propose(partition):
     """Proposes a random boundary flip from the partition in a reversible fashion
     by selecting a boundary node at random and uniformly picking one of its
@@ -195,67 +196,56 @@ def evol_run(crossover_func, crossover_prob, proposal_func,validator, acceptance
 
 # intialize graph
 exp_num = 1
-# IOWA
-# k = 4
-# graph_name = 'iowa'
-# graph_path = './input_data/'+graph_name+'.json'
-# graph = Graph.from_json(graph_path)
-# num_districts = k
-# ideal_pop = sum([graph.nodes[v]["TOTPOP"] for v in graph.nodes()])/num_districts
-# unit_name = 'GEOID10'
-# area_name = 'area'
-# x_name = 'INTPTLON10'
-# y_name = 'INTPTLAT10'
-# shapefile_name = 'IA_counties'
-# gdf = gpd.read_file('./input_data/'+shapefile_name)
-# gdf = gdf.to_crs({'init': 'epsg:26775'})
+#IOWA
+#k = 4
+#graph_name = 'iowa'
+#graph_path = './input_data/'+graph_name+'.json'
+#graph = Graph.from_json(graph_path)
+#num_districts = k
+#ideal_pop = sum([graph.nodes[v]["TOTPOP"] for v in graph.nodes()])/num_districts
+#unit_name = 'GEOID10'
+#area_name = 'area'
+#x_name = 'INTPTLON10'
+#y_name = 'INTPTLAT10'
+#shapefile_name = 'IA_counties'
+#gdf = gpd.read_file('./input_data/'+shapefile_name)
+#gdf = gdf.to_crs({'init': 'epsg:26775'})
 
-#TEXAS
-# k=36
-# graph_name = 'Texas'
-# graph_path = './input_data/tx.json'
-# graph = Graph.from_json(graph_path)
-# shapefile_path = './input_data/Texas_xy/Texas_xy.shp'
-# gdf = gpd.read_file(shapefile_path)
-# num_districts = k
-# ideal_pop = sum([graph.nodes[v]["TOTPOP"] for v in graph.nodes()])/num_districts
-# unit_name = 'CNTYVTD'
-# area_name = 'Shape_area'
-# x_name = 'x_val'
-# y_name = 'y_val'
-# gdf = gdf.to_crs({'init': 'epsg:26775'})
-
-#AR Tracts
-# k=4
-# graph_name = 'arkansas_tracts'
-# graph_path = './input_data/'+graph_name+'.json'
-# graph = Graph.from_json(graph_path)
-# shapefile_path = './input_data/cb_2018_05_tract_500k/cb_2018_05_tract_500k.shp'
-# gdf = gpd.read_file(shapefile_path)
-# num_districts = k
-# ideal_pop = sum([graph.nodes[v]["TOTPOP"] for v in graph.nodes()])/num_districts
-# unit_name = 'GEOID10'
-# area_name = 'area'
-# x_name = 'INTPTLON10'
-# y_name = 'INTPTLAT10'
-# gdf = gdf.to_crs({'init': 'epsg:26775'})
-
-#NM Tracts
-k=3
-graph_name = 'new_mexico_tracts'
-graph_path = './input_data/'+graph_name+'.json'
-graph = Graph.from_json(graph_path)
-shapefile_path = './input_data/cb_2018_35_tract_500k/cb_2018_35_tract_500k.shp'
-gdf = gpd.read_file(shapefile_path)
+#NEW MEXICO
+k = 42 #NM state senate districts
+graph_name = 'New Mexico'
+unit_name = 'NAME10'
 num_districts = k
+plot_path = './input_data/NM_precincts_edited/NM_precincts_edited.shp' 
+gdf = gpd.read_file(plot_path)
+graph = Graph.from_geodataframe(gdf)
+graph.add_data(gdf)
 ideal_pop = sum([graph.nodes[v]["TOTPOP"] for v in graph.nodes()])/num_districts
-unit_name = 'GEOID10'
-gdf_unit_name = 'GEOID'
-area_name = 'area'
-x_name = 'INTPTLON10'
-y_name = 'INTPTLAT10'
-gdf = gdf.to_crs({'init': 'epsg:26775'})
-gdf[unit_name] = gdf[gdf_unit_name]
+area_name = 'Area'
+centroids = gdf.centroid
+c_x = centroids.x
+c_y = centroids.y
+for node in graph.nodes():
+    graph.nodes[node]["x_val"] = c_x[node]
+    graph.nodes[node]["y_val"] = c_y[node]
+x_name = 'x_val'
+y_name = 'y_val'
+
+##TEXAS
+#k=36
+#graph_name = 'Texas'
+#graph_path = './input_data/tx.json'
+#graph = Graph.from_json(graph_path)
+#shapefile_path = './input_data/Texas_xy/Texas_xy.shp'
+#gdf = gpd.read_file(shapefile_path)
+#num_districts = k
+#ideal_pop = sum([graph.nodes[v]["TOTPOP"] for v in graph.nodes()])/num_districts
+#unit_name = 'CNTYVTD'
+#area_name = 'Shape_area'
+#x_name = 'x_val'
+#y_name = 'y_val'
+#gdf = gdf.to_crs({'init': 'epsg:26775'})
+
 
 for node in graph.nodes():
     graph.nodes[node]["x"] = float(graph.nodes[node][x_name])
@@ -266,8 +256,6 @@ for node in graph.nodes():
 # ititialize partitions
 tree_walk = False
 population_size = 10
-
-
 
 #IOWA starting
 # init_dists = {88: 0, 75: 0, 98: 0, 82: 0, 45: 0, 29: 0, 33: 0, 37: 0, 96: 0, 80: 0, 78: 0, 40: 0, 81: 0, 63: 0, 83: 0, 1: 0, 74: 0, 0: 0, 62: 0, 4: 0, 86: 0, 27: 0, 6: 0, 52: 0, 89: 0, 11: 0, 91: 0, 15: 0, 23: 0, 31: 0, 85: 0, 59: 0, 5: 1, 10: 1, 38: 1, 8: 1, 92: 1, 16: 1, 24: 1, 53: 1, 76: 1, 94: 1, 28: 1, 35: 1, 34: 1, 51: 2, 93: 2, 54: 2, 95: 2, 25: 2, 73: 2, 22: 2, 47: 2, 71: 2, 41: 2, 60: 3, 17: 3, 12: 3, 30: 3, 65: 3, 79: 3, 36: 3, 50: 3, 56: 3, 58: 3, 49: 3, 18: 3, 9: 3, 7: 3, 87: 3, 90: 3, 44: 3, 77: 3, 13: 3, 14: 3, 66: 3, 42: 3, 20: 3, 69: 3, 55: 3, 70: 3, 46: 3, 19: 3, 61: 3, 2: 3, 67: 3, 97: 3, 43: 3, 72: 3, 26: 3, 39: 3, 84: 3, 32: 3, 64: 3, 21: 3, 57: 3, 3: 3, 48: 3, 68: 3}
@@ -318,29 +306,31 @@ gdf_print_map(init_partition, './opt_plots/starting_plan.png', gdf, unit_name)
 
 record_partition(init_partition, 0, 'starting', graph_name, exp_num)
 
-
 partition_list = [init_partition]
 for i in range(population_size-1):
-    new_plan = recursive_tree_part(graph, range(k), ideal_pop, "TOTPOP", .02, 3)
+    print("Here!")
+    new_plan = recursive_tree_part(graph, range(k), ideal_pop, "TOTPOP", .03, 5) #stalling here
     partition = Partition(graph, assignment=new_plan, updaters=updaters)
+    print("made new partition!")
     partition_list.append(partition)
 print([len(i['cut_edges']) for i in partition_list])
 gdf_print_map_set(partition_list, './opt_plots/starting_population.png', gdf, unit_name)
 
 print("FINISHED INITIALIZING")
 ############################## Compare ##############################
-
-
-evol_num_steps = 1000
+evol_num_steps = 100
 num_steps = evol_num_steps*population_size
 max_adjust = 200
 max_adjust_chen = 10
-prob_crossover = 0.10
-evol_print_step = 100
+prob_crossover = 0.05
+evol_print_step = 10
 print_step = evol_print_step*population_size
 print_maps = False
 ep = 0.05
-hill_anneal_for_population = True
+hill_anneal_for_population = False
+
+crossover_func_tiling = partial(tiling_crossover, k= k, ep = ep, max_adjust = max_adjust, ideal_pop = ideal_pop)
+crossover_func_seam_split = partial(seam_split_crossover, k= k, ep = ep, max_adjust = max_adjust, ideal_pop = ideal_pop)
 crossover_func_book = partial(book_chapter_crossover, k= k, ep = ep, max_adjust = max_adjust, ideal_pop = ideal_pop)
 crossover_func_chen = partial(chen_crossover, k= k, ep = ep, max_adjust = max_adjust_chen, ideal_pop = ideal_pop)
 crossover_func_half_recom = partial(half_half_recom_crossover, k= k, ep = ep, max_adjust = max_adjust, ideal_pop = ideal_pop)
@@ -349,11 +339,10 @@ popbound = within_percent_of_ideal_population(init_partition, ep)
 constraints = Validator([single_flip_contiguous, popbound])
 
 if hill_anneal_for_population:
-    num_steps = evol_num_steps
     min_hill_cut_len = math.inf
     min_hill_cuts = []
     for i in range(population_size):
-        hill_part, hill_cuts = hillclimb_run(slow_reversible_propose,Validator([single_flip_contiguous, popbound]), partition_list[i], num_steps, evol_print_step, print_map = print_maps)
+        hill_part, hill_cuts = hillclimb_run(slow_reversible_propose,Validator([single_flip_contiguous, popbound]), partition_list[i], evol_num_steps, evol_print_step, print_map = print_maps)
         gdf_print_map(hill_part, './opt_plots/hill_end_'+ str(exp_num) +'_'+str(i)+'.png', gdf, unit_name)
         if min(hill_cuts) < min_hill_cut_len:
             min_hill_cut_len = min(hill_cuts)
@@ -362,7 +351,7 @@ if hill_anneal_for_population:
     min_anneal_cut_len = math.inf
     min_anneal_cuts = []
     for i in range(population_size):
-        anneal_part, anneal_cuts = anneal_run(slow_reversible_propose,Validator([single_flip_contiguous, popbound]), partition_list[i], num_steps, evol_print_step, print_map = print_maps)
+        anneal_part, anneal_cuts = anneal_run(slow_reversible_propose,Validator([single_flip_contiguous, popbound]), partition_list[i], evol_num_steps, evol_print_step, print_map = print_maps)
         gdf_print_map(anneal_part, './opt_plots/anneal_end_'+ str(exp_num) +'_'+str(i)+'.png', gdf, unit_name)
         if min(anneal_cuts) < min_anneal_cut_len:
             min_anneal_cut_len = min(anneal_cuts)
@@ -374,11 +363,18 @@ else:
     gdf_print_map(hill_part, './opt_plots/hill_end_'+ str(exp_num) + '.png', gdf, unit_name)
     gdf_print_map(anneal_part, './opt_plots/anneal_end_'+ str(exp_num) + '.png', gdf, unit_name)
 
+
+evol_parts_tiling, evol_min_cuts_tiling = evol_run(crossover_func_tiling, prob_crossover, slow_reversible_propose, Validator([single_flip_contiguous, popbound]), hill_climb, partition_list, evol_num_steps, evol_print_step, print_map = print_maps)
+evol_parts_seam_split, evol_min_cuts_seam_split = evol_run(crossover_func_seam_split, prob_crossover, slow_reversible_propose, Validator([single_flip_contiguous, popbound]), hill_climb, partition_list, evol_num_steps, evol_print_step, print_map = print_maps)
 evol_parts_book, evol_min_cuts_book = evol_run(crossover_func_book, prob_crossover, slow_reversible_propose, Validator([single_flip_contiguous, popbound]), hill_climb, partition_list, evol_num_steps, evol_print_step, print_map = print_maps)
 evol_parts_chen, evol_min_cuts_chen = evol_run(crossover_func_chen, prob_crossover, slow_reversible_propose, Validator([single_flip_contiguous, popbound]), hill_climb, partition_list, evol_num_steps, evol_print_step, print_map = print_maps)
 evol_parts_half_recom, evol_min_cuts_half_recom = evol_run(crossover_func_half_recom, prob_crossover, slow_reversible_propose, Validator([single_flip_contiguous, popbound]), hill_climb, partition_list, evol_num_steps, evol_print_step, print_map = print_maps)
+##note hill, anneal and evol produce a num_steps length list of cut-scores, INCLUDING the lowest one
+#found in the group of runs/ one parallel group of runs in evolutionary run
 
 
+gdf_print_map_set(evol_parts_tiling, './opt_plots/evol_tiling_end_'+ str(exp_num) +'.png', gdf, unit_name)
+gdf_print_map_set(evol_parts_seam_split, './opt_plots/evol_seam_split_end_'+ str(exp_num) +'.png', gdf, unit_name)
 gdf_print_map_set(evol_parts_book, './opt_plots/evol_book_end_'+ str(exp_num) +'.png', gdf, unit_name)
 gdf_print_map_set(evol_parts_chen, './opt_plots/evol_chen_end_'+ str(exp_num) +'.png', gdf, unit_name)
 gdf_print_map_set(evol_parts_half_recom, './opt_plots/evol_half_recom_end_'+ str(exp_num) +'.png', gdf, unit_name)
@@ -387,6 +383,8 @@ plt.figure()
 plt.title("Cut Lengths")
 plt.plot(min_hill_cuts,'r',label='Hill')
 plt.plot(min_anneal_cuts,'b',label='Anneal')
+plt.plot(evol_min_cuts_tiling,'yellow',label='EvolutionaryMin_tiling')
+plt.plot(evol_min_cuts_seam_split,'orange',label='EvolutionaryMin_seam_split')
 plt.plot(evol_min_cuts_book,'darkgreen',label='EvolutionaryMin_book')
 plt.plot(evol_min_cuts_chen,'lightgreen',label='EvolutionaryMin_chen')
 plt.plot(evol_min_cuts_half_recom,'purple',label='EvolutionaryMin_half_recom')
@@ -398,6 +396,8 @@ with open('./output_data/'+ graph_name+'_cuts' +'_'+ str(exp_num) + ".txt", 'a+'
     writer = csv.writer(partition_file)
     writer.writerow([time.time(), graph_name, num_steps, 'hill', len(graph.nodes())]+min_hill_cuts)
     writer.writerow([time.time(), graph_name, num_steps, 'anneal', len(graph.nodes())]+min_anneal_cuts)
+    writer.writerow([time.time(), graph_name, num_steps, 'evol_max_tiling', len(graph.nodes())]+evol_min_cuts_tiling)
+    writer.writerow([time.time(), graph_name, num_steps, 'evol_max_seam_split', len(graph.nodes())]+evol_min_cuts_seam_split)    
     writer.writerow([time.time(), graph_name, num_steps, 'evol_max_book', len(graph.nodes())]+evol_min_cuts_book)
     writer.writerow([time.time(), graph_name, num_steps, 'evol_max_chen', len(graph.nodes())]+evol_min_cuts_chen)
     writer.writerow([time.time(), graph_name, num_steps, 'evol_max_half_recom', len(graph.nodes())]+evol_min_cuts_half_recom)

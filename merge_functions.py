@@ -4,8 +4,10 @@ import math
 from functools import partial
 import numpy as np
 from gerrychain import MarkovChain, Graph, constraints
-from gerrychain.tree import recursive_tree_part, bipartition_tree
+from recursive_tree_timeout import *
+#from gerrychain.tree import recursive_tree_part, bipartition_tree
 from gerrychain.partition import Partition
+from dividing_functions import half_split
 import networkx as nx
 
 
@@ -117,4 +119,54 @@ def merge_small_neighbor(partition,k):
         partition = Partition(partition.graph, merged_assign, partition.updaters)
     
     return Partition(partition.graph, merged_assign, partition.updaters)
+
+def seam_split_merge(partition1, partition2, k, ep, gdf, pop_col = 'TOTPOP'):
+    #merged assignment (put 2 seed maps together along the random split line)
+    subgraph_connect = False
+    while not subgraph_connect:
+        split_part = half_split(partition1, gdf)
+        
+        merge_assign = {n: partition1.assignment[n] if split_part.assignment[n] == 0 else partition2.assignment[n] for n in split_part.assignment.keys() }
+        merge_part = Partition(split_part.graph, merge_assign, split_part.updaters)
+        
+        num_extra_parts = len(merge_part) - len(partition1)
+        
+        #districts cut/changed in map merging (i.e. districts eligible for merging/rebalancing)
+        dists1 = [k for k in partition1.parts.keys() if k in merge_part.parts.keys()]
+        dists2 = [k for k in partition2.parts.keys() if k in merge_part.parts.keys()]
+        changed_dists1 = [k for k in dists1 if merge_part.parts[k] != partition1.parts[k]]
+        changed_dists2 = [k for k in dists2 if merge_part.parts[k] != partition2.parts[k]]
+        changed_dists = changed_dists1 + changed_dists2
+        
+        num_changed_dists = len(changed_dists)
+        dists_to_make = num_changed_dists - num_extra_parts
+        
+        #lump together all nodes from districts that have been cut
+        changed_nodes = []
+        for l in changed_dists:
+            changed_nodes = changed_nodes + list(merge_part.parts[l])
+        
+        change_part_assign = {n:1 if n in changed_nodes else 2 for n in split_part.assignment.keys()}
+        seam_part = Partition(partition1.graph, change_part_assign, partition1.updaters)
+                
+         #check if "seam" subgraph is connected, if not, resplit the state and start again
+        subgraph = split_part.graph.subgraph(changed_nodes)
+        subgraph_connect = nx.is_connected(subgraph)
+        
+        
+        #want graph of just nodes in changed/cut districts
+    subgraph_pop = sum([subgraph.nodes[l][pop_col] for l in changed_nodes])
+    ideal_subgraph_pop = subgraph_pop/dists_to_make
+
+    #gets stuck here
+    
+    new_dists_assign0 = recursive_tree_part(subgraph, range(dists_to_make), ideal_subgraph_pop, pop_col, ep, node_repeats = 5) #prob not here, if bad seam, num node repeats wont help
+    new_dists_assign = {n: (new_dists_assign0[n] + 2*k) for n in new_dists_assign0.keys()}
+ 
+    final_assign = {d: merge_assign[d] if d not in changed_nodes else new_dists_assign[d] for d in split_part.assignment.keys()}  
+    
+    return Partition(partition1.graph, final_assign, partition1.updaters), split_part, merge_part, seam_part
+               
+        
+       
     

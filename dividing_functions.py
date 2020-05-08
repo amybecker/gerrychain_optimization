@@ -4,7 +4,8 @@ import math
 from functools import partial
 import numpy as np
 from gerrychain import MarkovChain, Graph
-from gerrychain.tree import recursive_tree_part, bipartition_tree
+from recursive_tree_timeout import *
+#from gerrychain.tree import recursive_tree_part, bipartition_tree
 from gerrychain.partition import Partition
 import networkx as nx
 from networkx import is_connected, connected_components
@@ -79,11 +80,11 @@ def tiled(partition1, partition2):
         remaining_nodes -= other_nodes_in_dist
     return Partition(partition1.graph, tile_assign, partition1.updaters)
 
-def half_split(partition, gdf, pop_col="TOTPOP"):
-    tot_pop = gdf[pop_col].sum()
-    rand_split_assign = recursive_tree_part(partition.graph, range(2), tot_pop/2, pop_col, .01, node_repeats = 3)
+def half_split(partition, gdf, pop_col = "TOTPOP"):
+    tot_pop = sum([partition.graph.nodes[v][pop_col] for v in partition.graph.nodes()])
+    rand_split_assign = recursive_tree_part(partition.graph, range(2), tot_pop/2, pop_col, .01, 3)
     
-    return Partition(partition.graph, rand_split_assign, partition.my_updaters)
+    return Partition(partition.graph, rand_split_assign, partition.updaters)
         
     
     

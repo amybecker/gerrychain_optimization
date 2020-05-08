@@ -7,6 +7,7 @@ from gerrychain import MarkovChain, Graph
 from gerrychain.tree import recursive_tree_part, bipartition_tree
 from gerrychain.partition import Partition
 import networkx as nx
+from networkx import is_connected, connected_components
 
 
 ################################################################
@@ -56,6 +57,35 @@ def common_refinement(partition1, partition2):
             refine_dict[v] = counter
         counter += 1
     return Partition(partition1.graph, refine_dict, partition1.updaters)
+
+def tiled(partition1, partition2):
+    remaining_nodes = set(partition1.graph.nodes)  
+    tile_assign = {}
+    highest_key = len(partition1)-1
+    
+    while len(remaining_nodes) > 0:        
+        random_node = random.sample(remaining_nodes,1)[0]
+        part_choice = random.choice([partition1, partition2])
+        assigned_dist = part_choice.assignment[random_node]
+        other_nodes_in_dist = set([n for n in remaining_nodes if part_choice.assignment[n] == assigned_dist])
+        
+        sub_graph = partition1.graph.subgraph(other_nodes_in_dist)
+        components = list(connected_components(sub_graph))
+        for component in components:
+            highest_key += 1
+            for node in component:
+                tile_assign[node] = highest_key
+  
+        remaining_nodes -= other_nodes_in_dist
+    return Partition(partition1.graph, tile_assign, partition1.updaters)
+
+def half_split(partition, gdf, pop_col="TOTPOP"):
+    tot_pop = gdf[pop_col].sum()
+    rand_split_assign = recursive_tree_part(partition.graph, range(2), tot_pop/2, pop_col, .01, node_repeats = 3)
+    
+    return Partition(partition.graph, rand_split_assign, partition.my_updaters)
+        
+    
     
 
 

@@ -3,11 +3,18 @@ a = random.randint(0,10000000000)
 import math
 from functools import partial
 import numpy as np
-from gerrychain import MarkovChain, Graph
+from gerrychain import MarkovChain, Graph, constraints
 from gerrychain.tree import recursive_tree_part, bipartition_tree
-from gerrychain.partition import Partition
+from gerrychain.constraints import (
+    Validator,
+    single_flip_contiguous,
+    within_percent_of_ideal_population,
+)
+from gerrychain.partition import Partition, GeographicPartition
+from gerrychain.proposals import propose_random_flip
 import networkx as nx
 from county_splits import county_bipartition_tree
+from utility_functions import *
 
 
 ################################################################
@@ -288,7 +295,41 @@ def shift_chen(partition, ep, rep_max, ideal_pop, dist_func, draw_map= False):
             
         counter += 1
     # print(past_10)
-    return partition 
+    return partition
+
+def shift_flip(partition, ep, ideal_pop, max_steps, chain_bound):
+    
+    #TODO: Amy, where do we think this function should be stored? Its
+    #needed in the Chain I run within this shift function
+    def pop_accept(partition):
+        if not partition.parent:
+            return True   
+        proposal_dev_score = max_pop_dev(partition, ideal_pop)
+        parent_dev_score = max_pop_dev(partition.parent, ideal_pop)
+        if proposal_dev_score < parent_dev_score:
+            return True
+        else:
+            draw = random.random()
+            return draw < chain_bound
+        
+    pop_tol_initial = max_pop_dev(partition, ideal_pop)
+    chain = MarkovChain(
+    proposal = propose_random_flip,
+    constraints=[
+        constraints.within_percent_of_ideal_population(partition, pop_tol_initial),
+        single_flip_contiguous 
+    ],
+    accept = pop_accept,
+    initial_state = partition,
+    total_steps = max_steps
+    )
+    
+    for step in chain:
+        partition = step
+        if max_pop_dev(partition, ideal_pop) <= ep:
+            break 
+    
+    return Partition(partition.graph, partition.assignment, partition.updaters) 
 
 
 

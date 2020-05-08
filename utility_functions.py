@@ -12,7 +12,7 @@ import geopandas as gpd
 from math import sin, cos, sqrt, atan2, radians, ceil, floor
 import csv
 import time
-
+from gerrychain.partition import Partition, GeographicPartition
 
 def print_map(partition_assign, name):
     plt.figure()
@@ -77,6 +77,37 @@ def centroid_dist_lat_lon(u,v):
 
     distance = R * c
     return distance
+
+def check_pop(partition, ideal_pop):
+    test_pop = {k : abs(partition["population"][k]- ideal_pop)/ideal_pop for k in partition.parts.keys()}
+    return sorted(list(test_pop.values()))
+
+def ordered_pop(partition):
+    return sorted(list(partition["population"].keys()))
+
+
+def max_pop_dev(partition, ideal_pop):
+    #returns max deviation from ideal across all districts in partition
+    dev_from_ideal = {k : abs(partition["population"][k]- ideal_pop)/ideal_pop for k in partition.parts.keys()}
+    return max(dev_from_ideal.values())
+
+def parts_connected(partition):
+    #returns True if all parts in partition are connected
+    dist_checks = []
+    for part in partition.parts.values():
+        sub_graph = partition.graph.subgraph(set(part))
+        dist_checks.append(nx.is_connected(sub_graph))
+    return False not in dist_checks
+
+    
+def shift_part_keys(partition):
+     #get final partition to have parts in 0 indexed range of # total parts
+    final_values = list(set(dict(partition.assignment).values()))
+    final_assign = {}
+    for key,value in dict(partition.assignment).items():
+        final_assign[key] = final_values.index(partition.assignment[key])
+    
+    return Partition(partition.graph, final_assign, partition.updaters)
 
 
 

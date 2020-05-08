@@ -195,7 +195,7 @@ def evol_run(crossover_func, crossover_prob, proposal_func,validator, acceptance
 
 # intialize graph
 exp_num = 1
-#IOWA
+# IOWA
 # k = 4
 # graph_name = 'iowa'
 # graph_path = './input_data/'+graph_name+'.json'
@@ -211,20 +211,51 @@ exp_num = 1
 # gdf = gdf.to_crs({'init': 'epsg:26775'})
 
 #TEXAS
-k=36
-graph_name = 'Texas'
-graph_path = './input_data/tx.json'
+# k=36
+# graph_name = 'Texas'
+# graph_path = './input_data/tx.json'
+# graph = Graph.from_json(graph_path)
+# shapefile_path = './input_data/Texas_xy/Texas_xy.shp'
+# gdf = gpd.read_file(shapefile_path)
+# num_districts = k
+# ideal_pop = sum([graph.nodes[v]["TOTPOP"] for v in graph.nodes()])/num_districts
+# unit_name = 'CNTYVTD'
+# area_name = 'Shape_area'
+# x_name = 'x_val'
+# y_name = 'y_val'
+# gdf = gdf.to_crs({'init': 'epsg:26775'})
+
+#AR Tracts
+# k=4
+# graph_name = 'arkansas_tracts'
+# graph_path = './input_data/'+graph_name+'.json'
+# graph = Graph.from_json(graph_path)
+# shapefile_path = './input_data/cb_2018_05_tract_500k/cb_2018_05_tract_500k.shp'
+# gdf = gpd.read_file(shapefile_path)
+# num_districts = k
+# ideal_pop = sum([graph.nodes[v]["TOTPOP"] for v in graph.nodes()])/num_districts
+# unit_name = 'GEOID10'
+# area_name = 'area'
+# x_name = 'INTPTLON10'
+# y_name = 'INTPTLAT10'
+# gdf = gdf.to_crs({'init': 'epsg:26775'})
+
+#NM Tracts
+k=3
+graph_name = 'new_mexico_tracts'
+graph_path = './input_data/'+graph_name+'.json'
 graph = Graph.from_json(graph_path)
-shapefile_path = './input_data/Texas_xy/Texas_xy.shp'
+shapefile_path = './input_data/cb_2018_35_tract_500k/cb_2018_35_tract_500k.shp'
 gdf = gpd.read_file(shapefile_path)
 num_districts = k
 ideal_pop = sum([graph.nodes[v]["TOTPOP"] for v in graph.nodes()])/num_districts
-unit_name = 'CNTYVTD'
-area_name = 'Shape_area'
-x_name = 'x_val'
-y_name = 'y_val'
+unit_name = 'GEOID10'
+gdf_unit_name = 'GEOID'
+area_name = 'area'
+x_name = 'INTPTLON10'
+y_name = 'INTPTLAT10'
 gdf = gdf.to_crs({'init': 'epsg:26775'})
-
+gdf[unit_name] = gdf[gdf_unit_name]
 
 for node in graph.nodes():
     graph.nodes[node]["x"] = float(graph.nodes[node][x_name])
@@ -300,16 +331,16 @@ print("FINISHED INITIALIZING")
 ############################## Compare ##############################
 
 
-evol_num_steps = 100
+evol_num_steps = 1000
 num_steps = evol_num_steps*population_size
 max_adjust = 200
 max_adjust_chen = 10
-prob_crossover = 0.05
-evol_print_step = 10
+prob_crossover = 0.10
+evol_print_step = 100
 print_step = evol_print_step*population_size
 print_maps = False
 ep = 0.05
-hill_anneal_for_population = False
+hill_anneal_for_population = True
 crossover_func_book = partial(book_chapter_crossover, k= k, ep = ep, max_adjust = max_adjust, ideal_pop = ideal_pop)
 crossover_func_chen = partial(chen_crossover, k= k, ep = ep, max_adjust = max_adjust_chen, ideal_pop = ideal_pop)
 crossover_func_half_recom = partial(half_half_recom_crossover, k= k, ep = ep, max_adjust = max_adjust, ideal_pop = ideal_pop)
@@ -318,10 +349,11 @@ popbound = within_percent_of_ideal_population(init_partition, ep)
 constraints = Validator([single_flip_contiguous, popbound])
 
 if hill_anneal_for_population:
+    num_steps = evol_num_steps
     min_hill_cut_len = math.inf
     min_hill_cuts = []
     for i in range(population_size):
-        hill_part, hill_cuts = hillclimb_run(slow_reversible_propose,Validator([single_flip_contiguous, popbound]), partition_list[i], evol_num_steps, evol_print_step, print_map = print_maps)
+        hill_part, hill_cuts = hillclimb_run(slow_reversible_propose,Validator([single_flip_contiguous, popbound]), partition_list[i], num_steps, evol_print_step, print_map = print_maps)
         gdf_print_map(hill_part, './opt_plots/hill_end_'+ str(exp_num) +'_'+str(i)+'.png', gdf, unit_name)
         if min(hill_cuts) < min_hill_cut_len:
             min_hill_cut_len = min(hill_cuts)
@@ -330,7 +362,7 @@ if hill_anneal_for_population:
     min_anneal_cut_len = math.inf
     min_anneal_cuts = []
     for i in range(population_size):
-        anneal_part, anneal_cuts = anneal_run(slow_reversible_propose,Validator([single_flip_contiguous, popbound]), partition_list[i], evol_num_steps, evol_print_step, print_map = print_maps)
+        anneal_part, anneal_cuts = anneal_run(slow_reversible_propose,Validator([single_flip_contiguous, popbound]), partition_list[i], num_steps, evol_print_step, print_map = print_maps)
         gdf_print_map(anneal_part, './opt_plots/anneal_end_'+ str(exp_num) +'_'+str(i)+'.png', gdf, unit_name)
         if min(anneal_cuts) < min_anneal_cut_len:
             min_anneal_cut_len = min(anneal_cuts)

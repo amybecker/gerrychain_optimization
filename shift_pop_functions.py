@@ -360,7 +360,7 @@ def shift_chen(partition, ep, rep_max, ideal_pop, dist_func, draw_map= False):
     # print('counter:', counter, 'past_10:', past_10, "pop dev:",pop_dev(partition))
     return partition
 
-def shift_flip(partition, ep, ideal_pop, max_steps = 10000, chain_bound = .1):
+def shift_flip(partition, ep, ideal_pop, max_steps = 150000, chain_bound = .02):
     
     #TODO: Amy, where do we think this function should be stored? Its
     #needed in the Chain I run within this shift function
@@ -391,10 +391,13 @@ def shift_flip(partition, ep, ideal_pop, max_steps = 10000, chain_bound = .1):
     total_steps = max_steps
     )
     
+    step_Num = 0
     for step in chain:
         partition = step
+     #   print("step num", step_Num, max_pop_dev(partition, ideal_pop))
         if max_pop_dev(partition, ideal_pop) <= ep:
             break 
+        step_Num += 1
     
     return Partition(partition.graph, partition.assignment, partition.updaters) 
 

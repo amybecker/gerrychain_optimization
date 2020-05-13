@@ -145,7 +145,10 @@ def tiling_crossover(part1, part2, k, ep, max_adjust, ideal_pop, draw_map = Fals
     #get final partition's part values to be in 0 indexed range of # total parts
     part_shift = shift_part_keys(part_shift0)
     if testing:
-        print('final_dev:',pop_dev(part_shift))
+        print('final_dev plan:', pop_dev(part_shift), 'max dev:', max_pop_dev(part_shift, ideal_pop))
+        print('parent1 dev:', pop_dev(part1), 'max dev:', max_pop_dev(part1, ideal_pop))
+        print('parent2 dev:', pop_dev(part2), max_pop_dev(part2, ideal_pop))
+        
     if draw_map:
             try:
                 assert(len(gdf) >= 0)
@@ -180,9 +183,10 @@ def seam_split_crossover(part1, part2, k, ep, max_adjust, ideal_pop, draw_map = 
     final_part0, split_part, merge_part, seam_part = seam_split_merge(part1, part2, k, ep, gdf)
     final_part = shift_part_keys(final_part0)  
     if testing:
-        print('final_dev:',pop_dev(final_part))
+        print('final_dev plan:', pop_dev(final_part), 'max dev:', max_pop_dev(final_part, ideal_pop))
+        print('parent1 dev:', pop_dev(part1), 'max dev:', max_pop_dev(part1, ideal_pop))
+        print('parent2 dev:', pop_dev(part2), max_pop_dev(part2, ideal_pop))
     
-
     if draw_map:
             try:
                 assert(len(gdf) >= 0)
@@ -215,42 +219,57 @@ def seam_split_crossover(part1, part2, k, ep, max_adjust, ideal_pop, draw_map = 
 
 def crossover_test():
     #test on IOWA
-#    k = 4
-#    graph_name = 'iowa'
-#    graph_path = './input_data/'+graph_name+'.json'
-#    graph = Graph.from_json(graph_path)
-#    num_districts = k
-#    ideal_pop = sum([graph.nodes[v]["TOTPOP"] for v in graph.nodes()])/num_districts
-#    unit_name = 'GEOID10'
-#    area_name = 'area'
-#    x_name = 'INTPTLON10'
-#    y_name = 'INTPTLAT10'
-#    # areaC_X = "areaC_X"
-#    # areaC_Y = "areaC_Y"
-#    # area = 'area'
-#    shapefile_name = 'IA_counties'
-#    gdf = gpd.read_file('./input_data/'+shapefile_name)
-#    gdf = gdf.to_crs({'init': 'epsg:26775'})
+    k = 4
+    graph_name = 'iowa'
+    graph_path = './input_data/'+graph_name+'.json'
+    graph = Graph.from_json(graph_path)
+    num_districts = k
+    ideal_pop = sum([graph.nodes[v]["TOTPOP"] for v in graph.nodes()])/num_districts
+    unit_name = 'GEOID10'
+    area_name = 'area'
+    x_name = 'INTPTLON10'
+    y_name = 'INTPTLAT10'
+    # areaC_X = "areaC_X"
+    # areaC_Y = "areaC_Y"
+    # area = 'area'
+    shapefile_name = 'IA_counties'
+    gdf = gpd.read_file('./input_data/'+shapefile_name)
+    gdf = gdf.to_crs({'init': 'epsg:26775'})
 
 #test on New Mexico    
-    k = 42 #NM state senate districts
-    graph_name = 'New Mexico'
-    unit_name = 'NAME10'
-    num_districts = k
-    plot_path = './input_data/NM_precincts_edited/NM_precincts_edited.shp' 
-    gdf = gpd.read_file(plot_path)
-    graph = Graph.from_geodataframe(gdf)
-    graph.add_data(gdf)
-    ideal_pop = sum([graph.nodes[v]["TOTPOP"] for v in graph.nodes()])/num_districts
-    area_name = 'Area'
-    centroids = gdf.centroid
-    c_x = centroids.x
-    c_y = centroids.y
-    for node in graph.nodes():
-        graph.nodes[node]["x_val"] = c_x[node]
-        graph.nodes[node]["y_val"] = c_y[node]
-    x_name = 'x_val'
-    y_name = 'y_val'
+#    k = 42 #NM state senate districts
+#    graph_name = 'New Mexico'
+#    unit_name = 'NAME10'
+#    num_districts = k
+#    plot_path = './input_data/NM_precincts_edited/NM_precincts_edited.shp' 
+#    gdf = gpd.read_file(plot_path)
+#    graph = Graph.from_geodataframe(gdf)
+#    graph.add_data(gdf)
+#    ideal_pop = sum([graph.nodes[v]["TOTPOP"] for v in graph.nodes()])/num_districts
+#    area_name = 'Area'
+#    centroids = gdf.centroid
+#    c_x = centroids.x
+#    c_y = centroids.y
+#    for node in graph.nodes():
+#        graph.nodes[node]["x_val"] = c_x[node]
+#        graph.nodes[node]["y_val"] = c_y[node]
+#    x_name = 'x_val'
+#    y_name = 'y_val'
+
+#test on TX
+#    k=36
+#    graph_name = 'Texas'
+#    graph_path = './input_data/tx.json'
+#    graph = Graph.from_json(graph_path)
+#    shapefile_path = './input_data/Texas_xy/Texas_xy.shp'
+#    gdf = gpd.read_file(shapefile_path)
+#    num_districts = k
+#    ideal_pop = sum([graph.nodes[v]["TOTPOP"] for v in graph.nodes()])/num_districts
+#    unit_name = 'CNTYVTD'
+#    area_name = 'Shape_area'
+#    x_name = 'x_val'
+#    y_name = 'y_val'
+#    gdf = gdf.to_crs({'init': 'epsg:26775'})
 
     for node in graph.nodes():
         graph.nodes[node]["x"] = float(graph.nodes[node][x_name])

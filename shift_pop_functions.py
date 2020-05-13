@@ -75,9 +75,58 @@ def shift_pop(partition, ep, rep_max, ideal_pop, name = 'shift_orig', draw_map= 
             print_map(partition.assignment, name+str(counter))
             
         counter += 1
-    
+    # print(max([abs(partition["population"][i]-ideal_pop) for i in dict(partition["population"]).keys()]),ep*ideal_pop)
+    # print('ep:',ep,'ideal pop:',ideal_pop)
+    # print("pop_dict:",partition["population"])
+    # print('counter:', counter, "pop dev:",pop_dev(partition))
     return partition 
 
+def shift_pop_relaxed(partition, ep, rep_max, ideal_pop, name = 'shift_orig', draw_map= False):
+    counter = 0
+    while max([abs(partition["population"][i]-ideal_pop) for i in dict(partition["population"]).keys()]) > ep*ideal_pop and counter < rep_max:
+        best_pair = list(partition["cut_edges"])[0]
+        best_score = 0
+        diff_dict = {i:partition["population"][i]-ideal_pop for i in dict(partition["population"]).keys()}
+        for e in partition["cut_edges"]:
+            if max([abs(partition["population"][partition.assignment[e[i]]]-ideal_pop) for i in [0,1]]) > ep*ideal_pop:
+                if partition["population"][partition.assignment[e[0]]]> partition["population"][partition.assignment[e[1]]]:
+                    max_part = 0
+                    min_part = 1
+                else:
+                    max_part = 1
+                    min_part = 0
+                if partition["population"][partition.assignment[e[max_part]]]- ideal_pop > ep*ideal_pop:
+                    max_high = True
+                else:
+                    max_high = False
+                if ideal_pop - partition["population"][partition.assignment[e[min_part]]] > ep*ideal_pop:
+                    min_low = True
+                else:
+                    min_low = False
+                val = partition.graph.nodes[e[max_part]]["TOTPOP"]
+                # print(e, score, best_score, max_high, min_high, max_low, min_low, val)
+                if min_low or max_high:
+                    score = max(abs(diff_dict[partition.assignment[e[max_part]]]),abs(diff_dict[partition.assignment[e[min_part]]])) - max(abs(diff_dict[partition.assignment[e[max_part]]]-val),abs(diff_dict[partition.assignment[e[min_part]]]+val))
+                    if  score > best_score:
+                        subg = partition.graph.subgraph(partition.parts[partition.assignment[e[max_part]]]).copy()
+                        subg.remove_node(e[max_part])
+                        if nx.is_connected(subg):
+                            best_pair = (e[max_part], e[min_part])
+                            best_score = score
+        if best_score == 0:
+            break
+        else:
+            shift_dict = {v:partition.assignment[best_pair[1]] if v == best_pair[0] else partition.assignment[v] for v in partition.graph.nodes()}
+        partition = Partition(partition.graph, shift_dict, partition.updaters)
+        if draw_map:
+            print_map(partition.assignment, name+str(counter))
+            
+        counter += 1
+    # print(max([abs(partition["population"][i]-ideal_pop) for i in dict(partition["population"]).keys()]),ep*ideal_pop)
+    # print('ep:',ep,'ideal pop:',ideal_pop)
+    # print("pop_dict:",partition["population"])
+    # print('counter:', counter, "pop dev:",pop_dev(partition))
+    return partition 
 
 
 def shift_pop_alt(partition, ep, rep_max, ideal_pop, name = 'shift_alt', draw_map= False):
@@ -99,9 +148,9 @@ def shift_pop_alt(partition, ep, rep_max, ideal_pop, name = 'shift_alt', draw_ma
     exclude_set = set()
     while max([abs(partition["population"][i]-ideal_pop) for i in dict(partition["population"]).keys()]) > ep*ideal_pop and counter < rep_max:
         if len(exclude_set) >= len(neighbor_districts):
-            print('broke')
-            print(exclude_set)
-            print(neighbor_districts)
+            # print('broke')
+            # print(exclude_set)
+            # print(neighbor_districts)
             break
         #do we want to avoid moving pop from underpopulated districts?
         max_diff = max([abs(neighbor_districts[key]) for key in set(neighbor_districts.keys()).difference(exclude_set)])
@@ -167,7 +216,7 @@ def shift_pop_alt(partition, ep, rep_max, ideal_pop, name = 'shift_alt', draw_ma
         counter += 1
     
     #will return unbalanced partition if failed to balance
-    print(counter, switch_count)
+    # print(counter, switch_count)
     return partition 
 
 
@@ -243,7 +292,11 @@ def shift_chen(partition, ep, rep_max, ideal_pop, dist_func, draw_map= False):
     past_10 = []
     while max([abs(partition["population"][i]-ideal_pop) for i in dict(partition["population"]).keys()]) > ep*ideal_pop and counter < rep_max:
         if len(past_10) == 10 and len(set(past_10)) <=2:
-            # print('****** past 10 fail', past_10)
+            # print('****** past 10 fail', past_10,counter)
+            # print(max([abs(partition["population"][i]-ideal_pop) for i in dict(partition["population"]).keys()]),ep*ideal_pop)
+            # print('ep:',ep,'ideal pop:',ideal_pop)
+            # print("pop_dict:",partition["population"])
+            # print('counter:', counter, 'past_10:', past_10, "pop dev:",pop_dev(partition))
             return partition
         max_diff_pair = (partition.assignment[list(partition["cut_edges"])[0][0]], partition.assignment[list(partition["cut_edges"])[0][1]])
         max_diff_score = 0
@@ -282,6 +335,11 @@ def shift_chen(partition, ep, rep_max, ideal_pop, dist_func, draw_map= False):
                 moveable_units[(edge_unit_max, edge_unit_min)] = dist_func(partition.centroids[unit_m], unit_centroid) - dist_func(partition.centroids[unit_l], unit_centroid)
         
         if len(moveable_units) == 0:
+            # print(past_10, counter)
+            # print(max([abs(partition["population"][i]-ideal_pop) for i in dict(partition["population"]).keys()]),ep*ideal_pop)
+            # print('ep:',ep,'ideal pop:',ideal_pop)
+            # print("pop_dict:",partition["population"])
+            # print('counter:', counter, 'past_10:', past_10, "pop dev:",pop_dev(partition))
             return partition
         max_dp = max(moveable_units.values())
         move_unit = [i for i in moveable_units.keys() if moveable_units[i] == max_dp][0]
@@ -295,7 +353,11 @@ def shift_chen(partition, ep, rep_max, ideal_pop, dist_func, draw_map= False):
             gdf_print_map(partition, './book_figs/iter_merge_shift'+str(counter)+'.png', gdf, unit_key)
             
         counter += 1
-    # print(past_10)
+    # print(past_10, counter)
+    # print(max([abs(partition["population"][i]-ideal_pop) for i in dict(partition["population"]).keys()]),ep*ideal_pop)
+    # print('ep:',ep,'ideal pop:',ideal_pop)
+    # print("pop_dict:",partition["population"])
+    # print('counter:', counter, 'past_10:', past_10, "pop dev:",pop_dev(partition))
     return partition
 
 def shift_flip(partition, ep, ideal_pop, max_steps = 10000, chain_bound = .1):
@@ -313,10 +375,10 @@ def shift_flip(partition, ep, ideal_pop, max_steps = 10000, chain_bound = .1):
             draw = random.random()
             return draw < chain_bound
         
-    print("ideal pop", ideal_pop)
+    # print("ideal pop", ideal_pop)
     
     pop_tol_initial = max_pop_dev(partition, ideal_pop)
-    print("pop tol initial", pop_tol_initial)
+    # print("pop tol initial", pop_tol_initial)
     #if error again from initial state, just make constraint value
     chain = MarkovChain(
     proposal = propose_random_flip,

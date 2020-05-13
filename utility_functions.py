@@ -21,12 +21,12 @@ def print_map(partition_assign, name):
     plt.savefig(name+".png")
     plt.close()
 
-def gdf_print_map(partition, filename, gdf, unit_name):
+def gdf_print_map(partition, filename, gdf, unit_name, dpi = 300):
     cdict = {partition.graph.nodes[i][unit_name]:partition.assignment[i] for i in partition.graph.nodes()}
     gdf['color'] = gdf.apply(lambda x: cdict[x[unit_name]], axis=1)
     plt.figure()
     gdf.plot(column='color')
-    plt.savefig(filename)
+    plt.savefig(filename, dpi = dpi)
     plt.close('all')
 
 def gdf_print_map_set(partitions, filename, gdf, unit_name):
@@ -109,6 +109,8 @@ def shift_part_keys(partition):
     
     return Partition(partition.graph, final_assign, partition.updaters)
 
+def pop_dev(partition):
+    return (max(partition.population.values())- min(partition.population.values()))/(sum(partition.population.values())/len(partition))
 
 
 

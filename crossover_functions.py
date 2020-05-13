@@ -255,8 +255,6 @@ def crossover_test():
     for node in graph.nodes():
         graph.nodes[node]["x"] = float(graph.nodes[node][x_name])
         graph.nodes[node]["y"] = float(graph.nodes[node][y_name])
-        # graph.nodes[node]["areaC_X"] = float(graph.nodes[node][area_name])*float(graph.nodes[node][x_name])
-        # graph.nodes[node]["areaC_Y"] = float(graph.nodes[node][area_name])*float(graph.nodes[node][y_name])
         graph.nodes[node]["area"] = float(graph.nodes[node][area_name])
    
     updaters = {

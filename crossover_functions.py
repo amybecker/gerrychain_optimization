@@ -27,8 +27,11 @@ from utility_functions import *
 
 def book_chapter_crossover(part1, part2, k, ep, max_adjust, ideal_pop, draw_map = False, gdf = None, unit_name = None, testing=False):
         part_refine = common_refinement(part1, part2)
+        print("refined!")
         part_merge = merge_parts_smallest_sum(part_refine,k)
-        part_shift = shift_pop_relaxed(part_merge, ep, max_adjust, ideal_pop)
+        print("merged!")
+        part_shift = shift_pop_recom(part_merge, ep, max_adjust, ideal_pop)
+        print("shifted!")
         if testing:
             print('final_dev:',pop_dev(part_shift))
         if draw_map:
@@ -140,8 +143,9 @@ def half_half_recom_crossover(part1, part2, k, ep, max_adjust, ideal_pop,draw_ma
 def tiling_crossover(part1, part2, k, ep, max_adjust, ideal_pop, draw_map = False, gdf = None, unit_name = None, testing=False):
     part_tile = tiled(part1, part2)
     part_merge = merge_small_neighbor(part_tile, k)
-    part_shift0 = shift_flip(part_merge, ep, ideal_pop)
-    #note here in part_shift, max_adjust applies to number of chain flip steps in adjusting population
+    part_shift0 = shift_pop_recom(part_merge, ep, max_adjust, ideal_pop)
+    #note here in part_shift, number of chain flip steps is a fixed argument in function def
+    #function does NOT use max_adjust
     #get final partition's part values to be in 0 indexed range of # total parts
     part_shift = shift_part_keys(part_shift0)
     if testing:
@@ -219,44 +223,44 @@ def seam_split_crossover(part1, part2, k, ep, max_adjust, ideal_pop, draw_map = 
 
 def crossover_test():
     #test on IOWA
-    k = 4
-    graph_name = 'iowa'
-    graph_path = './input_data/'+graph_name+'.json'
-    graph = Graph.from_json(graph_path)
-    num_districts = k
-    ideal_pop = sum([graph.nodes[v]["TOTPOP"] for v in graph.nodes()])/num_districts
-    unit_name = 'GEOID10'
-    area_name = 'area'
-    x_name = 'INTPTLON10'
-    y_name = 'INTPTLAT10'
-    # areaC_X = "areaC_X"
-    # areaC_Y = "areaC_Y"
-    # area = 'area'
-    shapefile_name = 'IA_counties'
-    gdf = gpd.read_file('./input_data/'+shapefile_name)
-    gdf = gdf.to_crs({'init': 'epsg:26775'})
+#    k = 4
+#    graph_name = 'iowa'
+#    graph_path = './input_data/'+graph_name+'.json'
+#    graph = Graph.from_json(graph_path)
+#    num_districts = k
+#    ideal_pop = sum([graph.nodes[v]["TOTPOP"] for v in graph.nodes()])/num_districts
+#    unit_name = 'GEOID10'
+#    area_name = 'area'
+#    x_name = 'INTPTLON10'
+#    y_name = 'INTPTLAT10'
+#    # areaC_X = "areaC_X"
+#    # areaC_Y = "areaC_Y"
+#    # area = 'area'
+#    shapefile_name = 'IA_counties'
+#    gdf = gpd.read_file('./input_data/'+shapefile_name)
+#    gdf = gdf.to_crs({'init': 'epsg:26775'})
 
 #test on New Mexico    
-#    k = 42 #NM state senate districts
-#    graph_name = 'New Mexico'
-#    unit_name = 'NAME10'
-#    num_districts = k
-#    plot_path = './input_data/NM_precincts_edited/NM_precincts_edited.shp' 
-#    gdf = gpd.read_file(plot_path)
-#    graph = Graph.from_geodataframe(gdf)
-#    graph.add_data(gdf)
-#    ideal_pop = sum([graph.nodes[v]["TOTPOP"] for v in graph.nodes()])/num_districts
-#    area_name = 'Area'
-#    centroids = gdf.centroid
-#    c_x = centroids.x
-#    c_y = centroids.y
-#    for node in graph.nodes():
-#        graph.nodes[node]["x_val"] = c_x[node]
-#        graph.nodes[node]["y_val"] = c_y[node]
-#    x_name = 'x_val'
-#    y_name = 'y_val'
+    k = 42 #NM state senate districts
+    graph_name = 'New Mexico'
+    unit_name = 'NAME10'
+    num_districts = k
+    plot_path = './input_data/NM_precincts_edited/NM_precincts_edited.shp' 
+    gdf = gpd.read_file(plot_path)
+    graph = Graph.from_geodataframe(gdf)
+    graph.add_data(gdf)
+    ideal_pop = sum([graph.nodes[v]["TOTPOP"] for v in graph.nodes()])/num_districts
+    area_name = 'Area'
+    centroids = gdf.centroid
+    c_x = centroids.x
+    c_y = centroids.y
+    for node in graph.nodes():
+        graph.nodes[node]["x_val"] = c_x[node]
+        graph.nodes[node]["y_val"] = c_y[node]
+    x_name = 'x_val'
+    y_name = 'y_val'
 
-#test on TX
+##test on TX
 #    k=36
 #    graph_name = 'Texas'
 #    graph_path = './input_data/tx.json'
@@ -290,12 +294,12 @@ def crossover_test():
     max_adjust = 10000
     ep = 0.05
     
-    print("seam crossover test:")
-    seam_child1, seam_child2 = seam_split_crossover(part1, part2, k, ep, max_adjust, ideal_pop, draw_map = True, gdf = gdf, unit_name = unit_name, testing=True)
-    print(len(seam_child1.cut_edges), len(seam_child2.cut_edges))
     print("tiling crossover test:")
     tiling_child1, tiling_child2 = tiling_crossover(part1, part2, k, ep, max_adjust, ideal_pop, draw_map = True, gdf = gdf, unit_name = unit_name, testing=True)
     print(len(tiling_child1.cut_edges), len(tiling_child2.cut_edges))
+    print("seam crossover test:")
+    seam_child1, seam_child2 = seam_split_crossover(part1, part2, k, ep, max_adjust, ideal_pop, draw_map = True, gdf = gdf, unit_name = unit_name, testing=True)
+    print(len(seam_child1.cut_edges), len(seam_child2.cut_edges))
     print("book chapter crossover test:")
     book_child1, book_child2 = book_chapter_crossover(part1, part2, k, ep, max_adjust, ideal_pop, draw_map = True, gdf = gdf, unit_name = unit_name, testing=True)
     print(len(book_child1.cut_edges), len(book_child2.cut_edges))

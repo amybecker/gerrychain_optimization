@@ -93,9 +93,10 @@ def max_pop_dev(partition, ideal_pop):
 def parts_connected(partition):
     #returns True if all parts in partition are connected
     dist_checks = []
-    for part in partition.parts.values():
+    for num, part in partition.parts.items():       
         sub_graph = partition.graph.subgraph(set(part))
         dist_checks.append(nx.is_connected(sub_graph))
+    #    print("part", num, "connected:", nx.is_connected(sub_graph))
     return False not in dist_checks
 
     
@@ -111,7 +112,9 @@ def shift_part_keys(partition):
 def pop_dev(partition):
     return (max(partition.population.values())- min(partition.population.values()))/(sum(partition.population.values())/len(partition))
 
-
+def total_pop_dev(partition, ideal_pop):
+    dev_from_ideal = {k : abs(partition["population"][k]- ideal_pop)/ideal_pop for k in partition.parts.keys()}
+    return sum(dev_from_ideal.values())
 
 
 ################################  testing ########################################

@@ -167,6 +167,4 @@ def seam_split_merge(partition1, partition2, k, ep, gdf, pop_col = 'TOTPOP'):
     
     return Partition(partition1.graph, final_assign, partition1.updaters), split_part, merge_part, seam_part
                
-        
-       
-    
+          

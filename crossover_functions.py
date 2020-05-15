@@ -27,11 +27,8 @@ from utility_functions import *
 
 def book_chapter_crossover(part1, part2, k, ep, max_adjust, ideal_pop, draw_map = False, gdf = None, unit_name = None, testing=False):
         part_refine = common_refinement(part1, part2)
-        print("refined!")
         part_merge = merge_parts_smallest_sum(part_refine,k)
-        print("merged!")
         part_shift = shift_pop_recom(part_merge, ep, max_adjust, ideal_pop)
-        print("shifted!")
         if testing:
             print('final_dev:',pop_dev(part_shift))
         if draw_map:

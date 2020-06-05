@@ -125,12 +125,12 @@ def bipartition_tree(
     :param choice: :func:`random.choice`. Can be substituted for testing.
     """
     populations = {node: graph.nodes[node][pop_col] for node in graph}
-    #make dictionary of population of each graph component
-    components = list(nx.connected_components(graph))  
-    component_populations = []
-    for c in components:
-        component_populations.append(sum([graph.nodes[node]["TOTPOP"] for node in c]))
-    
+#    #make dictionary of population of each graph component
+#    components = list(nx.connected_components(graph))  
+#    component_populations = []
+#    for c in components:
+#        component_populations.append(sum([graph.nodes[node]["TOTPOP"] for node in c]))
+#    
     balanced_subtree = None
     if spanning_tree is None:
         spanning_tree = random_spanning_tree(graph)   
@@ -152,7 +152,7 @@ def bipartition_tree(
 
 
 def recursive_tree_part(
-    graph, parts, pop_target, pop_col, epsilon, node_repeats=1, method=bipartition_tree
+    graph, parts, pop_target, pop_col, epsilon, node_repeats=3, method=bipartition_tree
 ):
     """Uses :func:`~gerrychain.tree.bipartition_tree` recursively to partition a tree into
     ``len(parts)`` parts of population ``pop_target`` (within ``epsilon``). Can be used to
@@ -195,6 +195,8 @@ def recursive_tree_part(
                 stuck = False
             else:
                 stuck = True
+                if len(parts) == 2:
+                    return "Stuck"
                 break
                 
             part_pop = 0

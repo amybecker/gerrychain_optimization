@@ -80,6 +80,66 @@ def tiled(partition1, partition2):
         remaining_nodes -= other_nodes_in_dist
     return Partition(partition1.graph, tile_assign, partition1.updaters)
 
+def tiled_recom(partition1, partition2, verbose = False):
+    remaining_nodes = set(partition1.graph.nodes)  
+    tile_assign = {}
+    highest_key = len(partition1)-1
+    
+    while len(remaining_nodes) > 0:        
+        random_node = random.sample(remaining_nodes,1)[0]
+        part_choice = random.choice([partition1, partition2])
+        part_choice_name = '1' if part_choice == partition1 else '2'
+        assigned_dist = part_choice.assignment[random_node]       
+        other_nodes_in_dist = set([n for n in remaining_nodes if part_choice.assignment[n] == assigned_dist])
+
+        if verbose:
+            print("node", random_node, "part", part_choice_name, "assigned dist", assigned_dist )
+            print("len other nodes", len(other_nodes_in_dist), "len part's dist", len(part_choice.parts[assigned_dist]))
+        
+        if len(other_nodes_in_dist) == len(part_choice.parts[assigned_dist]):
+            highest_key += 1
+            for node in other_nodes_in_dist:
+                tile_assign[node] = highest_key                    
+            remaining_nodes = remaining_nodes.difference(other_nodes_in_dist)
+            
+        else: 
+            part_choice = partition2 if part_choice == partition1 else partition1
+            assigned_dist = part_choice.assignment[random_node] 
+            part_choice_name = '1' if part_choice == partition1 else '2'
+            other_nodes_in_dist = set([n for n in remaining_nodes if part_choice.assignment[n] == assigned_dist])
+            
+            if verbose:
+                print("node", random_node, "ALT part", part_choice_name, "ALT assigned dist", assigned_dist )
+                print("len other nodes", len(other_nodes_in_dist), "len part's dist", len(part_choice.parts[assigned_dist]))
+           
+            if len(other_nodes_in_dist) == len(part_choice.parts[assigned_dist]): 
+                highest_key += 1
+                for node in other_nodes_in_dist:
+                    tile_assign[node] = highest_key
+                remaining_nodes = remaining_nodes.difference(other_nodes_in_dist)
+                  
+            else:
+                if verbose:
+                    print("lone node!")
+                tile_assign[random_node] = 1000                      
+                remaining_nodes = remaining_nodes.difference({random_node})
+            
+                
+    return Partition(partition1.graph, tile_assign, partition1.updaters)
+
+#part_result = tiled_recom(part1, part2)
+#ideal_pop = sum(part_result["population"].values())/len(part1.parts)
+#print("ideal pop", ideal_pop, ideal_pop- ideal_pop*.02, ideal_pop + ideal_pop*.02)
+#sub_graph = part_result.graph.subgraph(part_result.parts[1000])
+#components = list(connected_components(sub_graph))
+#print([len(c) for c in components])
+#for c in components:
+#    tot_pop = 0
+#    for node in c:
+#        tot_pop += graph.nodes[node]["TOTPOP"]
+#    print("tot pop", tot_pop)       
+#  
+    
 def half_split(partition, gdf, pop_col = "TOTPOP"):
     tot_pop = sum([partition.graph.nodes[v][pop_col] for v in partition.graph.nodes()])
     rand_split_assign = recursive_tree_part(partition.graph, range(2), tot_pop/2, pop_col, .01, 3)

@@ -261,14 +261,23 @@ def shift_pop_recom(partition, ep, rep_max, ideal_pop, assign_col = 'COUNTYFP10'
         max_diff = max([abs(neighbor_districts[key]) for key in set(neighbor_districts.keys()).difference(remove_set)])
         max_diff_key = [key for key in set(neighbor_districts.keys()).difference(remove_set) if abs(neighbor_districts[key]) == max_diff][0]
         parts_to_merge = (max_diff_key[0], max_diff_key[1])
-
+     #   print("max_diff pop", max_diff, "dist pair", max_diff_key, "merge parts", parts_to_merge )
         subgraph = partition.graph.subgraph(partition.parts[parts_to_merge[0]] | partition.parts[parts_to_merge[1]])
         avg_pop = (partition.population[parts_to_merge[0]]+partition.population[parts_to_merge[1]])/2
 
         #perform recom to rebalance populations of these neighboring districts
         granularity_ep = find_pop_granularity(subgraph, avg_pop)
         adjusted_bipartition_ep = max(bipartion_ep, granularity_ep)
-        flips = recursive_tree_part(subgraph,parts_to_merge,pop_col=pop_col,pop_target=avg_pop,epsilon=adjusted_bipartition_ep,node_repeats=node_repeats,method=(partial(county_bipartition_tree, county_col = assign_col)))
+
+        stuck = True
+        while stuck == True:
+            flips = recursive_tree_part(subgraph,parts_to_merge,pop_col=pop_col,pop_target=avg_pop,epsilon=adjusted_bipartition_ep,node_repeats=node_repeats,method=bipartition_tree)
+            if flips == 'Stuck':
+                adjusted_bipartition_ep += .01
+                print("STUCK! new ep", adjusted_bipartition_ep)
+            else:
+                stuck = False
+    #    flips = recursive_tree_part(subgraph,parts_to_merge,pop_col=pop_col,pop_target=avg_pop,epsilon=adjusted_bipartition_ep,node_repeats=node_repeats,method=(partial(county_bipartition_tree, county_col = assign_col)))
         partition = partition.flip(flips)
         if abs(partition.population[parts_to_merge[0]]-partition.population[parts_to_merge[1]]) == max_diff:
             remove_set.add(max_diff_key)
@@ -284,8 +293,7 @@ def shift_pop_recom(partition, ep, rep_max, ideal_pop, assign_col = 'COUNTYFP10'
 
     return partition 
 
-
-
+    
 
 def shift_chen(partition, ep, rep_max, ideal_pop, dist_func, draw_map= False):
     counter = 0
@@ -360,7 +368,7 @@ def shift_chen(partition, ep, rep_max, ideal_pop, dist_func, draw_map= False):
     # print('counter:', counter, 'past_10:', past_10, "pop dev:",pop_dev(partition))
     return partition
 
-def shift_flip(partition, ep, ideal_pop, max_steps = 10000, chain_bound = .1):
+def shift_flip(partition, ep, ideal_pop, max_steps = 150000, chain_bound = .02):
     
     #TODO: Amy, where do we think this function should be stored? Its
     #needed in the Chain I run within this shift function
@@ -391,12 +399,76 @@ def shift_flip(partition, ep, ideal_pop, max_steps = 10000, chain_bound = .1):
     total_steps = max_steps
     )
     
+    step_Num = 0
     for step in chain:
         partition = step
+     #   print("step num", step_Num, max_pop_dev(partition, ideal_pop))
         if max_pop_dev(partition, ideal_pop) <= ep:
             break 
+        step_Num += 1
     
     return Partition(partition.graph, partition.assignment, partition.updaters) 
+
+def shift_biggest_donate(partition, ep, ideal_pop):
+    
+    def choose_flip_edge(ordered_dists, cut_edge_list):
+        found_biggest_dist = False
+        while found_biggest_dist == False:
+            biggest_dist = list(ordered_dists.keys())[0]      
+            dist_edges = [e for e in cut_edge_list for z in [0,1] if partition.assignment[e[z]] == biggest_dist]
+            if not dist_edges:
+                del ordered_dists[biggest_dist]
+            else:
+                found_biggest_dist = True 
+        
+        neighbor_dists= list(np.unique([partition.assignment[e[z]] for z in [0,1] for e in dist_edges] ))
+        neighbor_dists.remove(biggest_dist)
+        neighbor_pops = {q: partition["population"][q] for q in neighbor_dists}
+        smallest_neighbor = min(neighbor_pops, key=neighbor_pops.get)         
+        flip_edge_cands = [e for e in dist_edges for z in [0,1] if partition.assignment[e[z]] == smallest_neighbor]
+
+        return biggest_dist, smallest_neighbor, random.choice(flip_edge_cands)
+    
+    prior_dist_pair = [0,0]
+    while max_pop_dev(partition, ideal_pop) > ep:
+        print("pop dev", max_pop_dev(partition, ideal_pop))
+        flip = 'fail'
+        cut_edge_list = list(partition["cut_edges"])
+        ordered_dists = {k: v for k, v in sorted(partition["population"].items(), reverse = True, key=lambda item: item[1])}
+        part_assign = dict(partition.assignment) 
+        while flip == 'fail':                                     
+            big_dist, small_dist, flip_edge = choose_flip_edge(ordered_dists, cut_edge_list)           
+            propose_assign = part_assign.copy()
+            flip_from_index = 0 if part_assign[flip_edge[0]] == big_dist else 1
+            print("biggest dist", big_dist, "flip edge", flip_edge, "flip node", flip_edge[flip_from_index], "proposed dist", small_dist)
+            print("old from dist pop", big_dist, "pop", partition["population"][big_dist] )
+            print("old TO dist pop", small_dist, "pop", partition["population"][small_dist] )
+            propose_assign[flip_edge[flip_from_index]] = part_assign[flip_edge[1 - flip_from_index]]
+            propose_part = Partition(partition.graph, propose_assign, partition.updaters)
+            print("new from dist pop", big_dist, "pop", propose_part["population"][big_dist] )
+            print("new TO dist pop", small_dist, "pop", propose_part["population"][small_dist ])
+            
+            dist_pair1 = min(big_dist, small_dist)
+            dist_pair2 = max(big_dist, small_dist)
+            
+            if parts_connected(propose_part) and prior_dist_pair != [small_dist, big_dist]:
+                print("accept proposal!")
+                partition = propose_part
+                flip = 'success'
+                prior_dist_pair = [big_dist, small_dist]
+            else:
+                print("reject proposal")
+                cut_edge_list.remove(flip_edge)
+        
+    return partition 
+            
+            
+        
+    
+
+    
+    
+    
 
 
 
